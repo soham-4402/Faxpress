@@ -1,259 +1,107 @@
-"use client";
+'use client';
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
-
-/* --------------------------------
-   Types
---------------------------------- */
+import React, { createContext, useContext, useState } from 'react';
 
 export interface User {
   id: string;
-  name?: string;
-  email?: string;
+  name: string;
+  email: string;
   phone?: string;
-  image?: string;
+  role: 'customer' | 'admin';
+  avatar: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
-
-  loginWithEmail: (
-    email: string,
-    password: string
-  ) => Promise<void>;
-
+  isAuthModalOpen: boolean;
+  setIsAuthModalOpen: (open: boolean) => void;
+  authModalTab: 'signin' | 'signup';
+  setAuthModalTab: (tab: 'signin' | 'signup') => void;
+  openAuthModal: (tab?: 'signin' | 'signup') => void;
+  login: (identifier: string) => void;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
+  loginWithPhone: (phone: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
-
-  loginWithPhone: (
-    phone: string
-  ) => Promise<void>;
-
   logout: () => void;
-
-  setUser: (user: User | null) => void;
 }
 
-/* --------------------------------
-   Context
---------------------------------- */
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AuthContext = createContext<
-  AuthContextType | undefined
->(undefined);
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>({
+    id: 'u1',
+    name: 'Alex Rivera',
+    email: 'alex@example.com',
+    phone: '+1 (555) 234-5678',
+    role: 'customer',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin');
 
-/* --------------------------------
-   Provider
---------------------------------- */
-
-export function AuthProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const [user, setUser] = useState<User | null>(null);
-
-  const [isLoading, setIsLoading] =
-    useState(true);
-
-  /* --------------------------------
-     Load saved user
-  --------------------------------- */
-
-  useEffect(() => {
-    try {
-      const savedUser =
-        localStorage.getItem("user");
-
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
-      }
-    } catch (error) {
-      console.error(
-        "Failed to load user:",
-        error
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /* --------------------------------
-     Save user
-  --------------------------------- */
-
-  useEffect(() => {
-    if (isLoading) return;
-
-    if (user) {
-      localStorage.setItem(
-        "user",
-        JSON.stringify(user)
-      );
-    } else {
-      localStorage.removeItem("user");
-    }
-  }, [user, isLoading]);
-
-  /* --------------------------------
-     Email Login
-  --------------------------------- */
-
-  const loginWithEmail = async (
-    email: string,
-    password: string
-  ) => {
-    if (!email || !password) {
-      throw new Error(
-        "Email and password are required"
-      );
-    }
-
-    /*
-      Backend will eventually be:
-
-      POST /api/auth/login
-
-      {
-        email,
-        password
-      }
-    */
-
-    // Temporary demo authentication
-    const demoUser: User = {
-      id: `user-${Date.now()}`,
-      email,
-      name: email.split("@")[0],
-    };
-
-    setUser(demoUser);
+  const openAuthModal = (tab: 'signin' | 'signup' = 'signin') => {
+    setAuthModalTab(tab);
+    setIsAuthModalOpen(true);
   };
 
-  /* --------------------------------
-     Google Login
-  --------------------------------- */
+  const login = (identifier: string) => {
+    const isEmail = identifier.includes('@');
+    const nameStr = isEmail ? identifier.split('@')[0] : 'User (' + identifier.slice(-4) + ')';
+    const formattedName = nameStr.charAt(0).toUpperCase() + nameStr.slice(1);
+    setUser({
+      id: 'u_' + Date.now(),
+      name: formattedName || 'Alex Rivera',
+      email: isEmail ? identifier : 'user@example.com',
+      phone: !isEmail ? identifier : '+1 (555) 234-5678',
+      role: identifier.includes('admin') ? 'admin' : 'customer',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+    });
+    setIsAuthModalOpen(false);
+  };
+
+  const loginWithEmail = async (email: string) => {
+    login(email);
+  };
+
+  const loginWithPhone = async (phone: string) => {
+    login(phone);
+  };
 
   const loginWithGoogle = async () => {
-    /*
-      Connect Google OAuth/Auth.js here.
-
-      Example:
-
-      signIn("google", {
-        callbackUrl: "/dashboard",
-      });
-    */
-
-    console.log(
-      "Google authentication requested"
-    );
+    login('google.user@example.com');
   };
-
-  /* --------------------------------
-     Phone Login
-  --------------------------------- */
-
-  const loginWithPhone = async (
-    phone: string
-  ) => {
-    if (!phone) {
-      throw new Error(
-        "Phone number is required"
-      );
-    }
-
-    /*
-      Step 1:
-
-      POST /api/auth/send-otp
-
-      {
-        phone
-      }
-
-      Step 2:
-
-      User enters OTP
-
-      Step 3:
-
-      POST /api/auth/verify-otp
-
-      {
-        phone,
-        otp
-      }
-    */
-
-    console.log(
-      "Phone authentication requested:",
-      phone
-    );
-  };
-
-  /* --------------------------------
-     Logout
-  --------------------------------- */
 
   const logout = () => {
     setUser(null);
-
-    localStorage.removeItem("user");
-
-    /*
-      When Auth.js is connected:
-
-      await signOut({
-        callbackUrl: "/",
-      });
-    */
-  };
-
-  /* --------------------------------
-     Context value
-  --------------------------------- */
-
-  const value: AuthContextType = {
-    user,
-    isAuthenticated: !!user,
-    isLoading,
-
-    loginWithEmail,
-    loginWithGoogle,
-    loginWithPhone,
-
-    logout,
-    setUser,
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        isAuthModalOpen,
+        setIsAuthModalOpen,
+        authModalTab,
+        setAuthModalTab,
+        openAuthModal,
+        login,
+        loginWithEmail,
+        loginWithPhone,
+        loginWithGoogle,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
-/* --------------------------------
-   Hook
---------------------------------- */
-
 export function useAuth() {
-  const context =
-    useContext(AuthContext);
-
+  const context = useContext(AuthContext);
   if (!context) {
-    throw new Error(
-      "useAuth must be used inside AuthProvider"
-    );
+    throw new Error('useAuth must be used within an AuthProvider');
   }
-
   return context;
 }
